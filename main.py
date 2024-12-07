@@ -9,7 +9,9 @@
 #       @TODO : Avoir un main qui soit propre
 #       @TODO : Afficher le nb jours depuis AJD plutot que date création
 #       @TODO : pouvoir avoir des filtres sur le tableau pour dire que je veux les DD > à X, nb jours > à Y
-#
+#       @TODO : Afficher les jeunes vaults (moins de 7 jours)
+#       @TODO : Afficher les vaults avec un DD de moins de 20%
+#       @TODO : 
 #
 import streamlit as st
 import pandas as pd
@@ -45,6 +47,7 @@ for vault in vaults:
 
     progress_bar.progress(progress_i / total_steps)
     progress_i=progress_i+1
+    status_text.text(f"Downloading vaults details ({progress_i}/{total_steps})...")
 
     if details and "portfolio" in details and len(details["portfolio"]) > 3:
         pnl_history = details["portfolio"][3][1].get("accountValueHistory", [])
