@@ -2,10 +2,10 @@
 # streamlit run main.py
 
 #
+#       @TODO : Je pense que le système de cache de vault detail n'est pas optimum il est très lent
 #       @TODO : en fait il faut faire un tour de piste que pour le DL
 #               le code avec la progress barre de DLdu détail devrait être en 2 fois, une fois les données, une fois le calcul
 #               et il devrait aussi être plus isolé
-#       @TODO : Je pense que le système de cache de vault detail n'est pas optimum il devrait être fichier par fichier
 #       @TODO : Essayer de publier pour voir si c'est possible
 #       @TODO : Mettre un lien vers les vaults
 #       @TODO : les indicateurs https://www.codearmo.com/blog/sharpe-sortino-and-calmar-ratios-python
