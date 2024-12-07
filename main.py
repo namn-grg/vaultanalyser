@@ -2,11 +2,14 @@
 # streamlit run main.py
 
 #
+#       @TODO : en fait il faut faire un tour de piste que pour le DL
+#               le code avec la progress barre de DLdu détail devrait être en 2 fois, une fois les données, une fois le calcul
+#               et il devrait aussi être plus isolé
+#       @TODO : Je pense que le système de cache de vault detail n'est pas optimum il devrait être fichier par fichier
 #       @TODO : Essayer de publier pour voir si c'est possible
 #       @TODO : Mettre un lien vers les vaults
 #       @TODO : les indicateurs https://www.codearmo.com/blog/sharpe-sortino-and-calmar-ratios-python
 #       @TODO : avoir un système de blocage si plusieurs personnes demandent en même temps car ça semble foutre la merde
-#       @TODO : en fait il faut faire un tour de piste que pour le DL
 #       @TODO : Ensuite un second pour le calcul des indicateur comme ça on va pouvoir isoler le code proprement 
 #       @TODO : Avoir un main qui soit propre
 #       @TODO : Afficher le nb jours depuis AJD plutot que date création
