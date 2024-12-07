@@ -33,7 +33,7 @@ st.set_page_config(layout="wide")  # Page en full largeur
 vaults = fetch_vaults_data()
 
 # Limiter à 50 premières vaults
-vaults = vaults[:500]
+vaults = vaults[:50]
 
 # Étape 3 : Collecter les historiques PNL pour chaque vault et calculer les indicateurs
 
@@ -84,6 +84,23 @@ vaults_df = pd.DataFrame(vaults)
 del vaults_df['Leader']
 final_df = vaults_df.merge(indicators_df, on="Name", how="left")
 
+
+# les filtres
+st.subheader("Filtrer les Vaults")
+
+# Utiliser Markdown pour ajuster la taille du texte du label
+st.markdown("<h3 style='text-align: center;'>Max DD accepted</h3>", unsafe_allow_html=True)
+
+max_dd_value = st.slider(
+    "",
+    min_value=int(final_df["Max DD"].min()),
+    max_value=int(final_df["Max DD"].max()),
+    value=int(final_df["Max DD"].max()),
+    step=1
+)
+
+filtered_df = final_df[final_df["Max DD"] <= max_dd_value]
+
 # Afficher le tableau
-st.title(f"Liste des Vaults Actives ({len(final_df)}) Vaults")
-st.write(final_df)
+st.title(f"Liste des Vaults filtrées ({len(filtered_df)}) ")
+st.write(filtered_df)
