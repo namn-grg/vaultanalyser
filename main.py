@@ -2,6 +2,7 @@
 # streamlit run main.py
 
 #
+#       @TODO : La page doit s'afficher plus vite
 #       @TODO : Je pense que le système de cache de vault detail n'est pas optimum il est très lent
 #       @TODO : en fait il faut faire un tour de piste que pour le DL
 #               le code avec la progress barre de DLdu détail devrait être en 2 fois, une fois les données, une fois le calcul
