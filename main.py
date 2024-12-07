@@ -2,6 +2,15 @@
 # streamlit run main.py
 
 #
+#       @TODO : En fait, un mec peut être Rekt et à 0 en fait.
+#               donc si on divise par 0 faut bien mettre 0
+#               par contre, quand tout d'un coup il y aura du profit faut recaluler combien il a rajouté ?
+#               En fait le soucis c'est le ça monte, crame tout, remonte, 
+#               la question c'est comment comparer le tout sur un même pied d'éaglité alors qu'on a que le gain cumulé 
+#               ou le capital après gain (ou perte) et que des gens peuvent se rekt
+#               Et aussi que d'autres peuvent refill et favoriser leurs stats
+#               pzut être demander a une IA 
+#  
 #       @TODO : Afficher le nombre de followers et pouvoir trier
 #       @TODO : en fait, ce servire de tedy57123 car on a une rupture aussi
 #               https://app.hyperliquid.xyz/vaults/0x7bde2b9240a2ee352108c6823a9fa20f225b83a0
