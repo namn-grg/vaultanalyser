@@ -2,6 +2,8 @@
 # streamlit run main.py
 
 #
+#       @TODO : Essayer de publier pour voir si c'est possible
+#       @TODO : Mettre un lien vers les vaults
 #       @TODO : les indicateurs https://www.codearmo.com/blog/sharpe-sortino-and-calmar-ratios-python
 #       @TODO : avoir un système de blocage si plusieurs personnes demandent en même temps car ça semble foutre la merde
 #       @TODO : en fait il faut faire un tour de piste que pour le DL
