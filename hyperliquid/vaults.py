@@ -86,7 +86,7 @@ def fetch_vault_details(leader, vault_address):
 
     try:
         with open(local_DETAILS_CACHE_FILE, "r") as f:
-            print("Vault DETAIL : cache used ", cache_key)
+            # print("Vault DETAIL : cache used ", cache_key)
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         print('Vault DETAIL : No cache finded')

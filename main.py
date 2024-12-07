@@ -2,6 +2,7 @@
 # streamlit run main.py
 
 #
+#       @TODO : Afficher le nombre de followers et pouvoir trier
 #       @TODO : en fait, ce servire de tedy57123 car on a une rupture aussi
 #               https://app.hyperliquid.xyz/vaults/0x7bde2b9240a2ee352108c6823a9fa20f225b83a0
 #               en fait faut prendre le gain et le capital de fin du coup on a le capital de début
@@ -68,8 +69,15 @@ total_steps=len(vaults)
 indicators = []
 progress_i=1
 for vault in vaults:
+
+    vault_to_log = "" #"0x9c823dab050a2b6f0b549d89b8f0b909f6936a92"
+
     # print(json.dumps(vault, indent=4))
     details = fetch_vault_details(vault["Leader"], vault["Vault"])
+
+    if vault['Vault'] == vault_to_log:
+        print('') 
+        print('----- ', vault["Vault"])
 
     progress_bar.progress(progress_i / total_steps)
     progress_i=progress_i+1
@@ -77,25 +85,45 @@ for vault in vaults:
 
     if details and "portfolio" in details :
 
-        type = "accountValueHistory"
-        # type = "pnlHistory"
 
         if details["portfolio"][3][0] == "allTime":
-            data_source = details["portfolio"][3][1].get(type, [])
-            pnl_values = np.array([float(pnl[1]) for pnl in data_source])
+            data_source_pnlHistory          = details["portfolio"][3][1].get("pnlHistory", [])
+            data_source_accountValueHistory = details["portfolio"][3][1].get("accountValueHistory", [])
+            rebuilded_pnl = []
 
-            if type == "pnlHistory":
-                # Calculer la valeur de décalage nécessaire
-                min_value = pnl_values.min()
-                print(pnl_values)
-                if min_value < 0:
-                    offset = abs(min_value)  # Décalage pour atteindre zéro
-                    pnl_values += offset
-                print(pnl_values)
-                print("---------------------------------------------")
+            balance = 1000000
+
+            # recalcul la balance sans tenir compte des mouvement des depositors
+            for idx, value in enumerate(data_source_pnlHistory):
+                
+                previous_pnlHistory             = float(data_source_pnlHistory[idx-1][1]) if idx > 0 else 0
+                actual_pnlHistory               = float(data_source_pnlHistory[idx  ][1])
+                profit                          = actual_pnlHistory - previous_pnlHistory
+
+                after_profit = float(data_source_accountValueHistory[idx][1])
+                before_profit = after_profit - profit
+
+                if data_source_pnlHistory[idx][1] == 0 and data_source_accountValueHistory[idx][1] == 0:
+                    continue
+
+                if data_source_pnlHistory[idx][0] != data_source_accountValueHistory[idx][0]:
+                    print('Just to check, normaly, not arriving')
+                    exit()
+
+                if before_profit > 0 :
+                    if vault['Vault'] == vault_to_log:
+                        print(idx, "after_profit " , after_profit, "/ before_profit ", before_profit)
+                    ratio = after_profit / before_profit
+                    # print("balance ", balance)
+                    balance = balance * ratio
+                    if vault['Vault'] == vault_to_log:
+                        print(idx, "profit " , profit, "/ balance ", balance, ' / vault ', vault["Vault"])
+                    rebuilded_pnl.append(balance)
+
+
 
             metrics =   {
-                            "Max DD %": calculate_max_drawdown_on_accountValue(pnl_values)
+                            "Max DD %": calculate_max_drawdown_on_accountValue(rebuilded_pnl)
                         }
             indicator_row = {
                 "Name": vault["Name"], 
@@ -132,7 +160,7 @@ max_dd_value = st.slider(
     "Max DD % accepted",
     min_value=int(filtered_df["Max DD %"].min()),
     max_value=int(filtered_df["Max DD %"].max()),
-    value=13,
+    value=16,
     step=1,
     label_visibility="hidden",
     
