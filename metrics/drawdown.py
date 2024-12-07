@@ -20,4 +20,4 @@ def calculate_max_drawdown_on_accountValue(cumulative_pnl):
     # Calcul du drawdown en pourcentage (par rapport au pic maximum)
     max_drawdown_pct = (max_drawdown / max_value * 100) if max_value != 0 else 0
 
-    return max_drawdown_pct
+    return int(max_drawdown_pct)

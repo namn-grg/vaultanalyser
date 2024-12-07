@@ -1,6 +1,4 @@
 .venv
-vaults_cache.json
-vault_details_cache.json
 hyperliquid/__pycache__/__init__.cpython-312.pyc
 hyperliquid/__pycache__/vaults.cpython-312.pyc
 metrics/__pycache__/__init__.cpython-312.pyc

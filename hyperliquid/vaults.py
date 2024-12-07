@@ -1,6 +1,7 @@
 import requests
 import os
 import json
+import re
 from datetime import datetime, timedelta
 import streamlit as st
 
@@ -8,8 +9,12 @@ import streamlit as st
 # URL pour les vaults
 VAULTS_URL = "https://stats-data.hyperliquid.xyz/Mainnet/vaults"
 INFO_URL = "https://api-ui.hyperliquid.xyz/info"
-CACHE_FILE = "vaults_cache.json"
-DETAILS_CACHE_FILE = "vault_details_cache.json"
+
+CACHE_DIR="./cache/"
+
+CACHE_FILE = CACHE_DIR + "vaults_cache.json"
+DETAILS_CACHE_FILE = CACHE_DIR + "/vault_detail/#KEY#/vault_details_cache.json"
+
 
 CACHE_DAYS_VALIDITY=7
 
@@ -27,11 +32,8 @@ def fetch_vaults_data():
     try:
         with open(CACHE_FILE, "r") as f:
             cache = json.load(f)
-            last_update = datetime.fromisoformat(cache["last_update"])
-            if datetime.now() - last_update < timedelta(days=CACHE_DAYS_VALIDITY):
-                print("Vault list CACHED USED")
-                cache_used = True
-                vaults = cache["data"]
+            cache_used = True
+            vaults = cache["data"]
     except (FileNotFoundError, KeyError, ValueError):
         pass
 
@@ -47,7 +49,7 @@ def fetch_vaults_data():
                 "Vault": vault["summary"]["vaultAddress"],
                 "Leader": vault["summary"]["leader"],
                 "Total Value Locked": float(vault["summary"]["tvl"]),
-                "Created Date": datetime.fromtimestamp(vault["summary"]["createTimeMillis"] / 1000).strftime("%d/%m/%Y"),
+                "Days Since": (datetime.now() - datetime.fromtimestamp(vault["summary"]["createTimeMillis"] / 1000)).days,
             }
             for vault in data if not vault["summary"]["isClosed"]
         ]
@@ -64,30 +66,30 @@ def fetch_vaults_data():
     progress_bar.empty()
     status_text.empty()
 
-    st.toast("Vault list OK !", icon="✅")
+    if not cache_used:
+        st.toast("Vault list OK !", icon="✅")
 
 
     return vaults
 
 def fetch_vault_details(leader, vault_address):
     """Récupère les détails d'une vault avec un système de cache."""
-    try:
-        with open(DETAILS_CACHE_FILE, "r") as f:
-            details_cache = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        details_cache = {}
+    
+    cache_key = re.sub(r"[^a-zA-Z0-9_]", "", leader + "_" + vault_address)
+    local_DETAILS_CACHE_FILE = DETAILS_CACHE_FILE.replace('#KEY#', cache_key)
+    
+    # Extraire le chemin des répertoires sans le fichier
+    directory_path = os.path.dirname(local_DETAILS_CACHE_FILE)
 
-    cache_key = f"{leader}_{vault_address}"  # Identifiant unique pour chaque vault
-    # Vérifier si la valeur est déjà en cache
-    if cache_key in details_cache:
-        print("Vault DETAIL : EXIST ", cache_key)
-        cached_entry = details_cache[cache_key]
-        last_update = datetime.fromisoformat(cached_entry["last_update"])
-        if datetime.now() - last_update < timedelta(days=CACHE_DAYS_VALIDITY):  # Cache valide pendant 1 jour
+    # Créer les répertoires si besoin
+    os.makedirs(directory_path, exist_ok=True)
+
+    try:
+        with open(local_DETAILS_CACHE_FILE, "r") as f:
             print("Vault DETAIL : cache used ", cache_key)
-            return cached_entry["data"]
-        else:
-            print("Vault DETAIL : Bad timestamp, DL required")
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print('Vault DETAIL : No cache finded')
 
     print("Vault DETAIL : DL used ", cache_key)
 
@@ -96,13 +98,8 @@ def fetch_vault_details(leader, vault_address):
     response = requests.post(INFO_URL, json=payload)
     if response.status_code == 200:
         details = response.json()
-        # Mettre à jour le cache
-        details_cache[cache_key] = {
-            "last_update": datetime.now().isoformat(), 
-            "data": details
-        }
-        with open(DETAILS_CACHE_FILE, "w") as f:
-            json.dump(details_cache, f)
+        with open(local_DETAILS_CACHE_FILE, "w") as f:
+            json.dump(details, f)
         return details
     else:
         return None
