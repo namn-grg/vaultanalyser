@@ -90,7 +90,6 @@ st.subheader("Filtrer les Vaults")
 
 # Utiliser Markdown pour ajuster la taille du texte du label
 st.markdown("<h3 style='text-align: center;'>Max DD accepted</h3>", unsafe_allow_html=True)
-
 max_dd_value = st.slider(
     "",
     min_value=int(final_df["Max DD"].min()),
