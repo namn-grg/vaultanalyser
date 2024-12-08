@@ -1,9 +1,10 @@
 # source .venv/bin/activate
 # streamlit run main.py
 
-#
-#       @TODO : Ranger le code (découper, cacher, metrics j'ai tout mis en vrac)
+#       @TODO : Avoir la position 1er 2d 3eme
 #       @TODO : Permettre de lancer en mode : cache_only ou rebuild cache
+#       @TODO : avoir la date du derner chargement des données
+#       @TODO : Ranger le code (découper, cacher, metrics j'ai tout mis en vrac)
 #       @TODO : La page doit s'afficher plus vite mettre en cache le plus possible les résultats
 #       @TODO : Essayer de publier pour voir si c'est possible
 #       @TODO : les indicateurs https://www.codearmo.com/blog/sharpe-sortino-and-calmar-ratios-python
@@ -233,6 +234,9 @@ st.title(f"Vaults filtered ({len(filtered_df)}) ")
 filtered_df["Link"] = filtered_df["Vault"].apply(
     lambda vault: f'https://app.hyperliquid.xyz/vaults/{vault}'
 )
+
+# Ajouter une colonne pour la position
+filtered_df.insert(0, "Position", filtered_df.index + 1)
 
 st.dataframe(
     filtered_df, 
