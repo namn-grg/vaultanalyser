@@ -2,55 +2,47 @@
 # streamlit run main.py
 
 #
-#       @TODO : En fait, un mec peut être Rekt et à 0 en fait.
-#               donc si on divise par 0 faut bien mettre 0
-#               par contre, quand tout d'un coup il y aura du profit faut recaluler combien il a rajouté ?
-#               En fait le soucis c'est le ça monte, crame tout, remonte, 
-#               la question c'est comment comparer le tout sur un même pied d'éaglité alors qu'on a que le gain cumulé 
-#               ou le capital après gain (ou perte) et que des gens peuvent se rekt
-#               Et aussi que d'autres peuvent refill et favoriser leurs stats
-#               pzut être demander a une IA 
-#  
-#       @TODO : Afficher le nombre de followers et pouvoir trier
-#       @TODO : en fait, ce servire de tedy57123 car on a une rupture aussi
-#               https://app.hyperliquid.xyz/vaults/0x7bde2b9240a2ee352108c6823a9fa20f225b83a0
-#               en fait faut prendre le gain et le capital de fin du coup on a le capital de début
-#               donc on connait le %
-#               et il faut appliquer ce % au capital actuel (1000 le jour J) puis la suite
-#               ce serait probablement un bon algo
-#               le soucis c'est quans il y a des nouveau entrant, par exemple cette vault
-#               https://app.hyperliquid.xyz/vaults/0x702255357a886ee309c4b82bd61ae9783a4e6d5d
-#               a mon avis il faut jouer avec PnlHistory et Acount history
-#               accountValueHistory : 39 [1733603883437, "182075.68717"]
-#               pnlHistory : 39 : [1733603883437, "49039.423212"] 
-#               le capital était de (182075.68717 - 49039.423212)
-#               le capital après action est de 182075.68717
-#               le gain est de 182075,68717 * 100 / (182075,68717 - 49039,423212) - 100 =  36%
-#               j'ai peur que ce ne soit pas possible en fait... j'arrive pas à savoir
+#       @TODO : Ranger le code (découper, cacher, metrics j'ai tout mis en vrac)
+#       @TODO : Permettre de lancer en mode : cache_only ou rebuild cache
 #       @TODO : La page doit s'afficher plus vite mettre en cache le plus possible les résultats
-#       @TODO : Je pense que le système de cache de vault detail n'est pas optimum il est très lent
-#       @TODO : en fait il faut faire un tour de piste que pour le DL
-#               le code avec la progress barre de DLdu détail devrait être en 2 fois, une fois les données, une fois le calcul
-#               et il devrait aussi être plus isolé
 #       @TODO : Essayer de publier pour voir si c'est possible
-#       @TODO : Mettre un lien vers les vaults
 #       @TODO : les indicateurs https://www.codearmo.com/blog/sharpe-sortino-and-calmar-ratios-python
 #       @TODO : avoir un système de blocage si plusieurs personnes demandent en même temps car ça semble foutre la merde
 #       @TODO : Ensuite un second pour le calcul des indicateur comme ça on va pouvoir isoler le code proprement 
 #       @TODO : Avoir un main qui soit propre
-#       @TODO : Afficher le nb jours depuis AJD plutot que date création
-#       @TODO : pouvoir avoir des filtres sur le tableau pour dire que je veux les DD > à X, nb jours > à Y
 #       @TODO : Afficher les jeunes vaults (moins de 7 jours)
-#       @TODO : Afficher les vaults avec un DD de moins de 20%
-#       @TODO : 
+#       @TODO : Afficher les vaults avec un DD de moins de 20% sur X jours (comme bybit)
 #
 import streamlit as st
 import pandas as pd
-import json
-import numpy as np
-from datetime import datetime
 from hyperliquid.vaults import fetch_vault_details, fetch_vaults_data
-from metrics.drawdown import calculate_max_drawdown_on_accountValue
+from metrics.drawdown import calculate_max_drawdown_on_accountValue, calculate_sharpe_ratio, calculate_sortino_ratio
+import pandas as pd
+
+# Disposition de 3 colonnes
+def slider_with_label(label, col, min_value, max_value, default_value, step, key):
+    """Créer un slider avec un titre personnalisé centré."""
+    col.markdown(f"<h3 style='text-align: center;'>{label}</h3>", unsafe_allow_html=True)
+    if not min_value < max_value:
+        col.markdown(f"<p style='text-align: center;' >Not choice available ({min_value} for all)</p>", unsafe_allow_html=True)
+        return None
+    
+    if default_value < min_value:
+        default_value = min_value
+
+    if default_value > max_value:
+        default_value = max_value
+
+    return col.slider(
+        label,
+        min_value=min_value,
+        max_value=max_value,
+        value=default_value,
+        step=step,
+        label_visibility="hidden",
+        key=key,
+    )
+
 
 limit_vault = False
 # limit_vault = True
@@ -92,6 +84,13 @@ for vault in vaults:
     progress_i=progress_i+1
     status_text.text(f"Downloading vaults details ({progress_i}/{total_steps})...")
 
+    nb_followers = 0
+    if details and "followers" in details :
+        for idx, value in enumerate(details['followers']):
+            if float(value['vaultEquity']) >= 0.01:
+                nb_followers = nb_followers + 1
+
+
     if details and "portfolio" in details :
 
 
@@ -100,39 +99,55 @@ for vault in vaults:
             data_source_accountValueHistory = details["portfolio"][3][1].get("accountValueHistory", [])
             rebuilded_pnl = []
 
-            balance = 1000000
+            balance = start_balance_amount = 1000000
+            nb_rekt = 0
+            last_rekt_idx = -10
+
 
             # recalcul la balance sans tenir compte des mouvement des depositors
             for idx, value in enumerate(data_source_pnlHistory):
-                
-                previous_pnlHistory             = float(data_source_pnlHistory[idx-1][1]) if idx > 0 else 0
-                actual_pnlHistory               = float(data_source_pnlHistory[idx  ][1])
-                profit                          = actual_pnlHistory - previous_pnlHistory
-
-                after_profit = float(data_source_accountValueHistory[idx][1])
-                before_profit = after_profit - profit
-
-                if data_source_pnlHistory[idx][1] == 0 and data_source_accountValueHistory[idx][1] == 0:
+                if idx == 0:
                     continue
 
+                # capital à l'instant T
+                final_capital           = float(data_source_accountValueHistory[idx][1])
+                # PNL cumulé à l'instant T
+                final_cumulated_pnl     = float(data_source_pnlHistory[idx][1])
+                # PNL cumulé à l'instant T -1
+                previous_cumulated_pnl  = float(data_source_pnlHistory[idx-1][1]) if idx > 0 else 0
+                # PNL NON cumulé à l'instant T
+                final_pnl               = final_cumulated_pnl - previous_cumulated_pnl
+                # capital avant le gain/perte
+                initial_capital         = final_capital - final_pnl
+                
+                if initial_capital <= 0:
+                    if last_rekt_idx+1 != idx:
+                        rebuilded_pnl = []
+                        balance = start_balance_amount
+                        nb_rekt = nb_rekt + 1
+                    last_rekt_idx = idx
+                    continue
+                # ratio de gain / perte
+                ratio = final_capital / initial_capital
+
+                # verification de la cohérence des timestamp
                 if data_source_pnlHistory[idx][0] != data_source_accountValueHistory[idx][0]:
                     print('Just to check, normaly, not arriving')
                     exit()
 
-                if before_profit > 0 :
-                    if vault['Vault'] == vault_to_log:
-                        print(idx, "after_profit " , after_profit, "/ before_profit ", before_profit)
-                    ratio = after_profit / before_profit
-                    # print("balance ", balance)
-                    balance = balance * ratio
-                    if vault['Vault'] == vault_to_log:
-                        print(idx, "profit " , profit, "/ balance ", balance, ' / vault ', vault["Vault"])
-                    rebuilded_pnl.append(balance)
+                # modification de la balance fictive
+                balance = balance * ratio
+
+                rebuilded_pnl.append(balance)
 
 
 
             metrics =   {
-                            "Max DD %": calculate_max_drawdown_on_accountValue(rebuilded_pnl)
+                            "Max DD %": calculate_max_drawdown_on_accountValue(rebuilded_pnl),
+                            "Rekt": nb_rekt,
+                            "Act. Followers": nb_followers,
+                            "Sharpe Ratio": calculate_sharpe_ratio(rebuilded_pnl),
+                            "Sortino Ratio": calculate_sortino_ratio(rebuilded_pnl),
                         }
             indicator_row = {
                 "Name": vault["Name"], 
@@ -163,53 +178,71 @@ final_df = vaults_df.merge(indicators_df, on="Name", how="left")
 st.subheader(f"Vaults available ({len(final_df)})")
 filtered_df = final_df
 
-# Utiliser Markdown pour ajuster la taille du texte du label
-st.markdown("<h3 style='text-align: center;'>Max DD % accepted</h3>", unsafe_allow_html=True)
-max_dd_value = st.slider(
-    "Max DD % accepted",
-    min_value=int(filtered_df["Max DD %"].min()),
-    max_value=int(filtered_df["Max DD %"].max()),
-    value=16,
-    step=1,
-    label_visibility="hidden",
-    
-)
-filtered_df = filtered_df[final_df["Max DD %"]                <= max_dd_value]
 
-st.markdown("<h3 style='text-align: center;'>Min Days Since accepted</h3>", unsafe_allow_html=True)
-min_dayssince_value = st.slider(
-    "Min Days Since accepted",
-    min_value=int(filtered_df["Days Since"].min()),
-    max_value=int(filtered_df["Days Since"].max()),
-    step=1,
-    label_visibility="hidden",
-    value=124
+# Filtre sur 'Name' (dernier filtre, en texte libre)
+st.markdown("<h3 style='text-align: center;'>Filter by Name</h3>", unsafe_allow_html=True)
+name_filter = st.text_input(
+    "Name Filter", 
+    "", 
+    placeholder="Enter names separated by ',' to filter (e.g., toto,tata)...", 
+    key="name_filter"
 )
-filtered_df = filtered_df[final_df["Days Since"]            >= min_dayssince_value]
 
-st.markdown("<h3 style='text-align: center;'>Min TVL accepted</h3>", unsafe_allow_html=True)
-min_tvl_value = st.slider(
-    "Min TVL accepted",
-    min_value=int(filtered_df["Total Value Locked"].min()),
-    max_value=int(filtered_df["Total Value Locked"].max()),
-    step=1,
-    label_visibility="hidden",
-    value=6000
-)
-filtered_df = filtered_df[final_df["Total Value Locked"]    >= min_tvl_value]
+# Appliquer le filtre
+if name_filter.strip():  # Vérifier que le filtre n'est pas vide
+    name_list = [name.strip() for name in name_filter.split(",")]  # Liste des noms à chercher
+    pattern = "|".join(name_list)  # Créer un pattern regex avec "ou" logique
+    filtered_df = filtered_df[
+        filtered_df["Name"].str.contains(pattern, case=False, na=False, regex=True)
+    ]
 
-st.markdown("<h3 style='text-align: center;'>Min APR accepted</h3>", unsafe_allow_html=True)
-min_apr_value = st.slider(
-    "Min APT accepted",
-    min_value=int(filtered_df["APR %"].min()),
-    max_value=int(filtered_df["APR %"].max()),
-    step=1,
-    label_visibility="hidden",
-    value=200
-)
-filtered_df = filtered_df[final_df["APR %"]    >= min_apr_value]
+# Organisation des sliders en lignes de 3
+sliders = [
+    {"label": "Min Sharpe Ratio",           "column": "Sharpe Ratio",       "max": False, "default": 0.4,   "step": 0.1},
+    {"label": "Min Sortino Ratio",          "column": "Sortino Ratio",      "max": False, "default": 0.5,   "step": 0.1},
+    {"label": "Max Rekt accepted",          "column": "Rekt",               "max": True, "default": 0,   "step": 1},
+    {"label": "Max DD % accepted",          "column": "Max DD %",           "max": True, "default": 15,  "step": 1},
+    {"label": "Min Days Since accepted",    "column": "Days Since",         "max": False, "default": 100, "step": 1},
+    {"label": "Min TVL accepted",           "column": "Total Value Locked", "max": False, "default": 4000, "step": 1},
+    {"label": "Min APR accepted",           "column": "APR %",              "max": False, "default": 0,  "step": 1},
+    {"label": "Min Followers",              "column": "Act. Followers",     "max": False, "default": 0,  "step": 1},
+]
+
+for i in range(0, len(sliders), 3):
+    cols = st.columns(3)
+    for slider, col in zip(sliders[i:i+3], cols):
+        column = slider["column"]
+        value = slider_with_label(
+            slider["label"], col,
+            min_value=float(filtered_df[column].min()),
+            max_value=float(filtered_df[column].max()),
+            default_value=float(slider["default"]),
+            step=float(slider["step"]),
+            key=f"slider_{column}"
+        )
+        if not value == None:
+            if slider["max"]:
+                filtered_df = filtered_df[filtered_df[column] <= value]
+            else:
+                filtered_df = filtered_df[filtered_df[column] >= value]
 
 # Afficher le tableau
 st.title(f"Vaults filtered ({len(filtered_df)}) ")
-st.dataframe(filtered_df, use_container_width=True, height=(len(filtered_df) * 35) + 50  # Ajuste la hauteur selon le nombre de lignes
+
+# Ajouter une colonne de liens cliquables
+filtered_df["Link"] = filtered_df["Vault"].apply(
+    lambda vault: f'https://app.hyperliquid.xyz/vaults/{vault}'
 )
+
+st.dataframe(
+    filtered_df, 
+    use_container_width=True, 
+    height=(len(filtered_df) * 35) + 50,  # Ajuste la hauteur selon le nombre de lignes
+    column_config={
+        "Link": st.column_config.LinkColumn(
+            "Vault Link",
+            display_text="Vault Link",
+        )
+    }
+)
+
