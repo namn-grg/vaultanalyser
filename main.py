@@ -235,8 +235,9 @@ filtered_df["Link"] = filtered_df["Vault"].apply(
     lambda vault: f'https://app.hyperliquid.xyz/vaults/{vault}'
 )
 
-# Ajouter une colonne pour la position
-filtered_df.insert(0, "Position", filtered_df.index + 1)
+# Réinitialiser l'index pour obtenir un classement continu
+filtered_df = filtered_df.reset_index(drop=True)
+
 
 st.dataframe(
     filtered_df, 
