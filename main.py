@@ -19,6 +19,63 @@ import pandas as pd
 from hyperliquid.vaults import fetch_vault_details, fetch_vaults_data
 from metrics.drawdown import calculate_max_drawdown_on_accountValue, calculate_sharpe_ratio, calculate_sortino_ratio
 import pandas as pd
+import os
+import json
+from datetime import datetime
+
+def check_date_file_exists(directory="./cache"):
+    """
+    Vérifie si le fichier `date.json` existe dans le répertoire spécifié.
+    
+    :param directory: Répertoire où le fichier est censé se trouver (par défaut /cache).
+    :return: True si le fichier existe, sinon False.
+    """
+    # Chemin complet du fichier
+    file_path = os.path.join(directory, "date.json")
+    
+    # Vérification de l'existence
+    return os.path.exists(file_path)
+
+def create_date_file(directory="./cache"):
+    """
+    Crée un fichier `date.json` dans le répertoire spécifié avec la date actuelle.
+    
+    :param directory: Répertoire où le fichier sera créé (par défaut /cache).
+    """
+    # Assurez-vous que le répertoire existe
+    os.makedirs(directory, exist_ok=True)
+    
+    # Chemin complet du fichier
+    file_path = os.path.join(directory, "date.json")
+    
+    # Contenu à écrire
+    current_date = {"date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    
+    # Écriture dans le fichier
+    with open(file_path, "w") as file:
+        json.dump(current_date, file, indent=4)
+    print(f"Fichier date.json créé dans {file_path}")
+
+
+def read_date_file(directory="./cache"):
+    """
+    Lit et retourne la date enregistrée dans le fichier `date.json` du répertoire spécifié.
+    
+    :param directory: Répertoire où le fichier est situé (par défaut /cache).
+    :return: La date sous forme de chaîne ou None si le fichier n'existe pas.
+    """
+    # Chemin complet du fichier
+    file_path = os.path.join(directory, "date.json")
+    
+    # Vérification de l'existence du fichier
+    if not os.path.exists(file_path):
+        print("Fichier date.json non trouvé.")
+        return None
+    
+    # Lecture du fichier
+    with open(file_path, "r") as file:
+        data = json.load(file)
+        return data.get("date")
 
 # Disposition de 3 colonnes
 def slider_with_label(label, col, min_value, max_value, default_value, step, key):
@@ -44,6 +101,46 @@ def slider_with_label(label, col, min_value, max_value, default_value, step, key
         key=key,
     )
 
+def calculate_average_daily_gain(rebuilded_pnl, days_since):
+    """
+    Calcule le % de gain moyen par jour.
+
+    :param rebuilded_pnl: Liste des valeurs cumulées de PnL ($).
+    :param days_since: Nombre de jours (int).
+    :return: Gain moyen par jour en pourcentage (float).
+    """
+    if len(rebuilded_pnl) < 2 or days_since <= 0:
+        return 0  # Pas assez de données pour calculer
+    
+    initial_value = rebuilded_pnl[0]
+    final_value = rebuilded_pnl[-1]
+    
+    # Éviter les divisions par zéro
+    if initial_value == 0:
+        return 0  # Impossible de calculer si la valeur initiale est 0
+
+    average_daily_gain_pct = ((final_value - initial_value) / (initial_value * days_since)) * 100
+    return average_daily_gain_pct
+
+def calculate_total_gain_percentage(rebuilded_pnl):
+    """
+    Calcule le pourcentage de variation totale depuis le début.
+
+    :param rebuilded_pnl: Liste des valeurs cumulées de PnL ($).
+    :return: Variation totale en pourcentage (float).
+    """
+    if len(rebuilded_pnl) < 2:
+        return 0  # Pas assez de données pour calculer
+    
+    initial_value = rebuilded_pnl[0]
+    final_value = rebuilded_pnl[-1]
+    
+    # Éviter les divisions par zéro
+    if initial_value == 0:
+        return 0  # Impossible de calculer si la valeur initiale est 0
+
+    total_gain_pct = ((final_value - initial_value) / initial_value) * 100
+    return total_gain_pct
 
 limit_vault = False
 # limit_vault = True
@@ -51,6 +148,10 @@ limit_vault = False
 
 st.set_page_config(layout="wide")  # Page en full largeur
 
+if not check_date_file_exists():
+    create_date_file()
+
+data_date = read_date_file()
 
 # Étape 1 : Récupération des données des vaults
 vaults = fetch_vaults_data()
@@ -61,6 +162,7 @@ if limit_vault:
 
 # Étape 3 : Collecter les historiques PNL pour chaque vault et calculer les indicateurs
 
+st.markdown(f"<h3 style='text-align: center;'>Data downloaded {data_date} </h3>", unsafe_allow_html=True)
 
 
 
@@ -149,6 +251,8 @@ for vault in vaults:
                             "Act. Followers": nb_followers,
                             "Sharpe Ratio": calculate_sharpe_ratio(rebuilded_pnl),
                             "Sortino Ratio": calculate_sortino_ratio(rebuilded_pnl),
+                            "Av. Daily Gain %": calculate_average_daily_gain(rebuilded_pnl, vault['Days Since']),
+                            "Gain %": calculate_total_gain_percentage(rebuilded_pnl),
                         }
             indicator_row = {
                 "Name": vault["Name"], 
