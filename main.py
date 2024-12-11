@@ -308,7 +308,7 @@ sliders = [
     {"label": "Max Rekt accepted",          "column": "Rekt",               "max": True, "default": 0,   "step": 1},
     {"label": "Max DD % accepted",          "column": "Max DD %",           "max": True, "default": 15,  "step": 1},
     {"label": "Min Days Since accepted",    "column": "Days Since",         "max": False, "default": 100, "step": 1},
-    {"label": "Min TVL accepted",           "column": "Total Value Locked", "max": False, "default": 1500, "step": 1},
+    {"label": "Min TVL accepted",           "column": "Total Value Locked", "max": False, "default": 0, "step": 1},
     {"label": "Min APR accepted",           "column": "APR %",              "max": False, "default": 0,  "step": 1},
     {"label": "Min Followers",              "column": "Act. Followers",     "max": False, "default": 0,  "step": 1},
 ]
