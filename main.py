@@ -153,130 +153,146 @@ if not check_date_file_exists():
 
 data_date = read_date_file()
 
-# Étape 1 : Récupération des données des vaults
-vaults = fetch_vaults_data()
-
-# Limiter à 50 premières vaults
-if limit_vault:
-    vaults = vaults[:50]
-
-# Étape 3 : Collecter les historiques PNL pour chaque vault et calculer les indicateurs
-
 st.markdown(f"<h3 style='text-align: center;'>Data downloaded {data_date} </h3>", unsafe_allow_html=True)
 
 
+DATAFRAME_CACHE_FILE="./cache/dataframe.pkl"
 
-progress_bar = st.progress(0)  # Barre de progression (de 0 à 1)
-status_text = st.empty()  # Texte affichant l'état
-status_text.text(f"Downloading vaults details...")
-total_steps=len(vaults)
-indicators = []
-progress_i=1
-for vault in vaults:
+cache_used = False
+try:
+    final_df = pd.read_pickle(DATAFRAME_CACHE_FILE)
+    cache_used = True
+except (FileNotFoundError, KeyError, ValueError):
+    pass
 
-    vault_to_log = "" #"0x9c823dab050a2b6f0b549d89b8f0b909f6936a92"
-
-    # print(json.dumps(vault, indent=4))
-    details = fetch_vault_details(vault["Leader"], vault["Vault"])
-
-    if vault['Vault'] == vault_to_log:
-        print('') 
-        print('----- ', vault["Vault"])
-
-    progress_bar.progress(progress_i / total_steps)
-    progress_i=progress_i+1
-    status_text.text(f"Downloading vaults details ({progress_i}/{total_steps})...")
-
-    nb_followers = 0
-    if details and "followers" in details :
-        for idx, value in enumerate(details['followers']):
-            if float(value['vaultEquity']) >= 0.01:
-                nb_followers = nb_followers + 1
+if not cache_used:
 
 
-    if details and "portfolio" in details :
+    # Étape 1 : Récupération des données des vaults
+    vaults = fetch_vaults_data()
 
+    # Limiter à 50 premières vaults
+    if limit_vault:
+        vaults = vaults[:50]
 
-        if details["portfolio"][3][0] == "allTime":
-            data_source_pnlHistory          = details["portfolio"][3][1].get("pnlHistory", [])
-            data_source_accountValueHistory = details["portfolio"][3][1].get("accountValueHistory", [])
-            rebuilded_pnl = []
-
-            balance = start_balance_amount = 1000000
-            nb_rekt = 0
-            last_rekt_idx = -10
-
-
-            # recalcul la balance sans tenir compte des mouvement des depositors
-            for idx, value in enumerate(data_source_pnlHistory):
-                if idx == 0:
-                    continue
-
-                # capital à l'instant T
-                final_capital           = float(data_source_accountValueHistory[idx][1])
-                # PNL cumulé à l'instant T
-                final_cumulated_pnl     = float(data_source_pnlHistory[idx][1])
-                # PNL cumulé à l'instant T -1
-                previous_cumulated_pnl  = float(data_source_pnlHistory[idx-1][1]) if idx > 0 else 0
-                # PNL NON cumulé à l'instant T
-                final_pnl               = final_cumulated_pnl - previous_cumulated_pnl
-                # capital avant le gain/perte
-                initial_capital         = final_capital - final_pnl
-                
-                if initial_capital <= 0:
-                    if last_rekt_idx+1 != idx:
-                        rebuilded_pnl = []
-                        balance = start_balance_amount
-                        nb_rekt = nb_rekt + 1
-                    last_rekt_idx = idx
-                    continue
-                # ratio de gain / perte
-                ratio = final_capital / initial_capital
-
-                # verification de la cohérence des timestamp
-                if data_source_pnlHistory[idx][0] != data_source_accountValueHistory[idx][0]:
-                    print('Just to check, normaly, not arriving')
-                    exit()
-
-                # modification de la balance fictive
-                balance = balance * ratio
-
-                rebuilded_pnl.append(balance)
+    # Étape 3 : Collecter les historiques PNL pour chaque vault et calculer les indicateurs
 
 
 
-            metrics =   {
-                            "Max DD %": calculate_max_drawdown_on_accountValue(rebuilded_pnl),
-                            "Rekt": nb_rekt,
-                            "Act. Followers": nb_followers,
-                            "Sharpe Ratio": calculate_sharpe_ratio(rebuilded_pnl),
-                            "Sortino Ratio": calculate_sortino_ratio(rebuilded_pnl),
-                            "Av. Daily Gain %": calculate_average_daily_gain(rebuilded_pnl, vault['Days Since']),
-                            "Gain %": calculate_total_gain_percentage(rebuilded_pnl),
-                        }
-            indicator_row = {
-                "Name": vault["Name"], 
-                **metrics  # Unpacks the metrics dictionary
-            }
-            indicators.append(indicator_row)
+
+    progress_bar = st.progress(0)  # Barre de progression (de 0 à 1)
+    status_text = st.empty()  # Texte affichant l'état
+    status_text.text(f"Downloading vaults details...")
+    total_steps=len(vaults)
+    indicators = []
+    progress_i=1
+    for vault in vaults:
+
+        vault_to_log = "" #"0x9c823dab050a2b6f0b549d89b8f0b909f6936a92"
+
+        # print(json.dumps(vault, indent=4))
+        details = fetch_vault_details(vault["Leader"], vault["Vault"])
+
+        if vault['Vault'] == vault_to_log:
+            print('') 
+            print('----- ', vault["Vault"])
+
+        progress_bar.progress(progress_i / total_steps)
+        progress_i=progress_i+1
+        status_text.text(f"Downloading vaults details ({progress_i}/{total_steps})...")
+
+        nb_followers = 0
+        if details and "followers" in details :
+            for idx, value in enumerate(details['followers']):
+                if float(value['vaultEquity']) >= 0.01:
+                    nb_followers = nb_followers + 1
+
+
+        if details and "portfolio" in details :
+
+
+            if details["portfolio"][3][0] == "allTime":
+                data_source_pnlHistory          = details["portfolio"][3][1].get("pnlHistory", [])
+                data_source_accountValueHistory = details["portfolio"][3][1].get("accountValueHistory", [])
+                rebuilded_pnl = []
+
+                balance = start_balance_amount = 1000000
+                nb_rekt = 0
+                last_rekt_idx = -10
+
+
+                # recalcul la balance sans tenir compte des mouvement des depositors
+                for idx, value in enumerate(data_source_pnlHistory):
+                    if idx == 0:
+                        continue
+
+                    # capital à l'instant T
+                    final_capital           = float(data_source_accountValueHistory[idx][1])
+                    # PNL cumulé à l'instant T
+                    final_cumulated_pnl     = float(data_source_pnlHistory[idx][1])
+                    # PNL cumulé à l'instant T -1
+                    previous_cumulated_pnl  = float(data_source_pnlHistory[idx-1][1]) if idx > 0 else 0
+                    # PNL NON cumulé à l'instant T
+                    final_pnl               = final_cumulated_pnl - previous_cumulated_pnl
+                    # capital avant le gain/perte
+                    initial_capital         = final_capital - final_pnl
+                    
+                    if initial_capital <= 0:
+                        if last_rekt_idx+1 != idx:
+                            rebuilded_pnl = []
+                            balance = start_balance_amount
+                            nb_rekt = nb_rekt + 1
+                        last_rekt_idx = idx
+                        continue
+                    # ratio de gain / perte
+                    ratio = final_capital / initial_capital
+
+                    # verification de la cohérence des timestamp
+                    if data_source_pnlHistory[idx][0] != data_source_accountValueHistory[idx][0]:
+                        print('Just to check, normaly, not arriving')
+                        exit()
+
+                    # modification de la balance fictive
+                    balance = balance * ratio
+
+                    rebuilded_pnl.append(balance)
+
+
+
+                metrics =   {
+                                "Max DD %": calculate_max_drawdown_on_accountValue(rebuilded_pnl),
+                                "Rekt": nb_rekt,
+                                "Act. Followers": nb_followers,
+                                "Sharpe Ratio": calculate_sharpe_ratio(rebuilded_pnl),
+                                "Sortino Ratio": calculate_sortino_ratio(rebuilded_pnl),
+                                "Av. Daily Gain %": calculate_average_daily_gain(rebuilded_pnl, vault['Days Since']),
+                                "Gain %": calculate_total_gain_percentage(rebuilded_pnl),
+                            }
+                indicator_row = {
+                    "Name": vault["Name"], 
+                    **metrics  # Unpacks the metrics dictionary
+                }
+                indicators.append(indicator_row)
+        
+    progress_bar.empty()
+    status_text.empty()
+
+    st.toast("Vault details OK !", icon="✅")
+
+    # Étape 4 : Fusionner les indicateurs avec le tableau principal
+    indicators_df = pd.DataFrame(indicators)
+    vaults_df = pd.DataFrame(vaults)
+    del vaults_df['Leader']
+    final_df = vaults_df.merge(indicators_df, on="Name", how="left")
+
     
-progress_bar.empty()
-status_text.empty()
-
-st.toast("Vault details OK !", icon="✅")
+    final_df.to_pickle(DATAFRAME_CACHE_FILE)
 
 
 
 
 
 
-
-
-# Étape 4 : Fusionner les indicateurs avec le tableau principal
-indicators_df = pd.DataFrame(indicators)
-vaults_df = pd.DataFrame(vaults)
-del vaults_df['Leader']
-final_df = vaults_df.merge(indicators_df, on="Name", how="left")
 
 
 # les filtres
