@@ -13,6 +13,22 @@
 #       @TODO : Avoir un main qui soit propre
 #       @TODO : Afficher les jeunes vaults (moins de 7 jours)
 #       @TODO : Afficher les vaults avec un DD de moins de 20% sur X jours (comme bybit)
+"""
+        @TODO : here is ASXNs Vault Stats page for some views / inspiration 
+                hyperliquid(dot)asxn(dot)xyz/vault_metrics Another cool thing is AvsB - 
+                where two or more vaults can be compared side-by-side for performance highlighting them. 
+                It is like comparing fund a vs fund b say (Q3 2024 or b/w specific dates) and yellow highlighting 
+                which fund performed well during that period.
+        @TODO : C'est un début plutôt sympa ! Bon travail :) Je viens de commencer à explorer le site. 
+                Les filtres peuvent-ils être résumés comme par exemple finviz(dot)com et l'espace blanc 
+                réduit pour qu'il tienne sur une page ? Ajoutez également une section en vedette (comme CG/CMC) 
+                qui peut être activée/désactivée (en mettant en évidence les coffres les plus performants 
+                depuis leur création/des 30 derniers jours/du dernier trimestre), etc. Ajoutez des pointeurs 
+                d'aide (?) avec des définitions pour tous les différents paramètres (il pourrait s'agir de 
+                simples définitions d'Investopedia et d'un lien vers plus d'informations sur ce paramètre). 
+                Ajoutez un changement dans les métriques 30D/60D, etc. pour mesurer les performances du coffre ?
+
+"""
 #
 import streamlit as st
 import pandas as pd
