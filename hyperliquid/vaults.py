@@ -6,29 +6,29 @@ from datetime import datetime
 import streamlit as st
 
 
-# URL pour les vaults
+# URL for the vaults
 VAULTS_URL = "https://stats-data.hyperliquid.xyz/Mainnet/vaults"
 INFO_URL = "https://api-ui.hyperliquid.xyz/info"
 
-CACHE_DIR="./cache/"
+CACHE_DIR = "./cache/"
 
 CACHE_FILE = CACHE_DIR + "vaults_cache.json"
 DETAILS_CACHE_FILE = CACHE_DIR + "/vault_detail/#KEY#/vault_details_cache.json"
 
 
-CACHE_DAYS_VALIDITY=7
+CACHE_DAYS_VALIDITY = 7
 
-def fetch_vaults_data(): 
-    """Récupère les données des vaults (avec cache)."""
 
-    # Initialisation de la barre de progression et du compteur
-    progress_bar = st.progress(0)  # Barre de progression (de 0 à 1)
-    status_text = st.empty()  # Texte affichant l'état
+def fetch_vaults_data():
+    """Fetches vault data (with cache)."""
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
     status_text.text(f"Downloading vault list...")
 
     cache_used = False
 
-    # Cache already exist ?
+    # Cache already exist?
     try:
         with open(CACHE_FILE, "r") as f:
             cache = json.load(f)
@@ -37,11 +37,11 @@ def fetch_vaults_data():
     except (FileNotFoundError, KeyError, ValueError):
         pass
 
-    if not cache_used: # Cache n'existe pas
+    if not cache_used:  # Cache does not exist
         response = requests.get(VAULTS_URL)
         data = response.json()
-            
-        # Étape 2 : Préparer les données des vaults
+
+        # Step 2: Prepare vault data
         vaults = [
             {
                 "Name": vault["summary"]["name"],
@@ -55,9 +55,10 @@ def fetch_vaults_data():
         ]
 
         with open(CACHE_FILE, "w") as f:
-            json.dump({"last_update": datetime.now().isoformat(), "data": vaults}, f)
+            json.dump(
+                {"last_update": datetime.now().isoformat(), "data": vaults}, f)
 
-    progress_bar.progress(100)  # Barre de progression (de 0 à 1)
+    progress_bar.progress(100)  # Progress bar (from 0 to 1)
     if cache_used:
         status_text.text(f"Vault List cache used")
     else:
@@ -67,34 +68,35 @@ def fetch_vaults_data():
     status_text.empty()
 
     if not cache_used:
-        st.toast("Vault list OK !", icon="✅")
-
+        st.toast("Vault list OK!", icon="✅")
 
     return vaults
 
+
 def fetch_vault_details(leader, vault_address):
-    """Récupère les détails d'une vault avec un système de cache."""
-    
+    """Fetches vault details with a caching system."""
+
     cache_key = re.sub(r"[^a-zA-Z0-9_]", "", leader + "_" + vault_address)
     local_DETAILS_CACHE_FILE = DETAILS_CACHE_FILE.replace('#KEY#', cache_key)
-    
-    # Extraire le chemin des répertoires sans le fichier
+
+    # Extract the directory path without the file
     directory_path = os.path.dirname(local_DETAILS_CACHE_FILE)
 
-    # Créer les répertoires si besoin
+    # Create directories if needed
     os.makedirs(directory_path, exist_ok=True)
 
     try:
         with open(local_DETAILS_CACHE_FILE, "r") as f:
-            # print("Vault DETAIL : cache used ", cache_key)
+            # print("Vault DETAIL: cache used", cache_key)
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        print('Vault DETAIL : No cache finded')
+        print('Vault DETAIL: No cache found')
 
-    print("Vault DETAIL : DL used ", cache_key)
+    print("Vault DETAIL: Download used", cache_key)
 
-    # Sinon, effectuer la requête
-    payload = {"type": "vaultDetails", "user": leader, "vaultAddress": vault_address}
+    # Otherwise, make the request
+    payload = {"type": "vaultDetails",
+               "user": leader, "vaultAddress": vault_address}
     response = requests.post(INFO_URL, json=payload)
     if response.status_code == 200:
         details = response.json()

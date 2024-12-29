@@ -1,5 +1,3 @@
 .venv
-hyperliquid/__pycache__/__init__.cpython-312.pyc
-hyperliquid/__pycache__/vaults.cpython-312.pyc
-metrics/__pycache__/__init__.cpython-312.pyc
-metrics/__pycache__/drawdown.cpython-312.pyc
+hyperliquid/__pycache__/
+metrics/__pycache__/
