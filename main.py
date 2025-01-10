@@ -16,25 +16,19 @@ from metrics.drawdown import (
 )
 
 # Page config
-st.set_page_config(layout="wide")  # Full-width page layout
+st.set_page_config(page_title="HyperLiquid Vault Analyser", page_icon="📊", layout="wide")
 
-# Create status columns for update information
-status_col1, status_col2 = st.columns(2)
+# Title and description
+st.title("📊 HyperLiquid Vault Analyser")
 
-# Get last update time from cache
+# Update time display
 try:
     with open("./cache/vaults_cache.json", "r") as f:
         cache = json.load(f)
         last_update = datetime.fromisoformat(cache["last_update"])
-        next_update = last_update + timedelta(hours=24)
-
-        with status_col1:
-            st.info(f"🕒 Last Updated: {last_update.strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        with status_col2:
-            st.info(f"⏰ Next Update: {next_update.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        st.caption(f"🔄 Last update: {last_update.strftime('%Y-%m-%d %H:%M')} UTC")
 except (FileNotFoundError, KeyError, ValueError):
     st.warning("⚠️ Cache not found. Data will be fetched fresh.")
-
 st.markdown("---")  # Add a separator line
 
 
@@ -167,7 +161,6 @@ def calculate_total_gain_percentage(rebuilded_pnl):
 
 
 limit_vault = False
-# limit_vault = True
 
 
 DATAFRAME_CACHE_FILE = "./cache/dataframe.pkl"
@@ -181,43 +174,33 @@ except (FileNotFoundError, KeyError, ValueError):
 
 if not cache_used:
 
-    # Step 1: Fetch vault data
+    # Get vaults data (will use cache if valid)
     vaults = fetch_vaults_data()
 
-    # Limit to the first 50 vaults
+    # Limit to the first 50 vaults if needed
     if limit_vault:
         vaults = vaults[:50]
 
-    # Step 3: Collect PnL histories for each vault and calculate indicators
-
-    progress_bar = st.progress(0)  # Progress bar (from 0 to 1)
-    status_text = st.empty()  # Text displaying status
-    status_text.text(f"Downloading vault details...")
+    # Process vault details from cache
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    status_text.text("Processing vault details...")
     total_steps = len(vaults)
     indicators = []
     progress_i = 1
-    for vault in vaults:
 
-        vault_to_log = ""  # "0x9c823dab050a2b6f0b549d89b8f0b909f6936a92"
+    for vault in vaults:
+        progress_bar.progress(progress_i / total_steps)
+        progress_i = progress_i + 1
+        status_text.text(f"Processing vault details ({progress_i}/{total_steps})...")
 
         details = fetch_vault_details(vault["Leader"], vault["Vault"])
 
-        if vault["Vault"] == vault_to_log:
-            print("")
-            print("----- ", vault["Vault"])
-
-        progress_bar.progress(progress_i / total_steps)
-        progress_i = progress_i + 1
-        status_text.text(f"Downloading vault details ({progress_i}/{total_steps})...")
-
         nb_followers = 0
         if details and "followers" in details:
-            for idx, value in enumerate(details["followers"]):
-                if float(value["vaultEquity"]) >= 0.01:
-                    nb_followers = nb_followers + 1
+            nb_followers = sum(1 for f in details["followers"] if float(f["vaultEquity"]) >= 0.01)
 
         if details and "portfolio" in details:
-
             if details["portfolio"][3][0] == "allTime":
                 data_source_pnlHistory = details["portfolio"][3][1].get("pnlHistory", [])
                 data_source_accountValueHistory = details["portfolio"][3][1].get("accountValueHistory", [])

@@ -10,7 +10,6 @@ on:
 jobs:
     update-cache:
         runs-on: ubuntu-latest
-
         steps:
             - uses: actions/checkout@v3
 
@@ -28,8 +27,8 @@ jobs:
               run: |
                   mkdir -p cache
                   python -c "
-                  from hyperliquid.vaults import fetch_vaults_data
-                  fetch_vaults_data()
+                  from hyperliquid.vaults import update_all_cache_data
+                  update_all_cache_data(show_progress=False)
                   "
 
             - name: Commit and push if changes
