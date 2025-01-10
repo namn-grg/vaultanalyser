@@ -1,13 +1,11 @@
 # source .venv/bin/activate
 # streamlit run main.py
 
-
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
-
 import streamlit as st
 
 from hyperliquid.vaults import fetch_vault_details, fetch_vaults_data
@@ -16,6 +14,28 @@ from metrics.drawdown import (
     calculate_sharpe_ratio,
     calculate_sortino_ratio,
 )
+
+# Page config
+st.set_page_config(layout="wide")  # Full-width page layout
+
+# Create status columns for update information
+status_col1, status_col2 = st.columns(2)
+
+# Get last update time from cache
+try:
+    with open("./cache/vaults_cache.json", "r") as f:
+        cache = json.load(f)
+        last_update = datetime.fromisoformat(cache["last_update"])
+        next_update = last_update + timedelta(hours=24)
+
+        with status_col1:
+            st.info(f"🕒 Last Updated: {last_update.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        with status_col2:
+            st.info(f"⏰ Next Update: {next_update.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+except (FileNotFoundError, KeyError, ValueError):
+    st.warning("⚠️ Cache not found. Data will be fetched fresh.")
+
+st.markdown("---")  # Add a separator line
 
 
 def check_date_file_exists(directory="./cache"):
@@ -79,8 +99,7 @@ def read_date_file(directory="./cache"):
 
 def slider_with_label(label, col, min_value, max_value, default_value, step, key):
     """Create a slider with a custom centered title."""
-    col.markdown(
-        f"<h3 style='text-align: center;'>{label}</h3>", unsafe_allow_html=True)
+    col.markdown(f"<h3 style='text-align: center;'>{label}</h3>", unsafe_allow_html=True)
     if not min_value < max_value:
         col.markdown(
             f"<p style='text-align: center;'>No choice available ({min_value} for all)</p>", unsafe_allow_html=True
@@ -122,8 +141,7 @@ def calculate_average_daily_gain(rebuilded_pnl, days_since):
     if initial_value == 0:
         return 0  # Cannot calculate if the initial value is 0
 
-    average_daily_gain_pct = (
-        (final_value - initial_value) / (initial_value * days_since)) * 100
+    average_daily_gain_pct = ((final_value - initial_value) / (initial_value * days_since)) * 100
     return average_daily_gain_pct
 
 
@@ -150,17 +168,6 @@ def calculate_total_gain_percentage(rebuilded_pnl):
 
 limit_vault = False
 # limit_vault = True
-
-
-st.set_page_config(layout="wide")  # Full-width page layout
-
-if not check_date_file_exists():
-    create_date_file()
-
-data_date = read_date_file()
-
-st.markdown(
-    f"<h3 style='text-align: center;'>Data downloaded {data_date} </h3>", unsafe_allow_html=True)
 
 
 DATAFRAME_CACHE_FILE = "./cache/dataframe.pkl"
@@ -201,8 +208,7 @@ if not cache_used:
 
         progress_bar.progress(progress_i / total_steps)
         progress_i = progress_i + 1
-        status_text.text(
-            f"Downloading vault details ({progress_i}/{total_steps})...")
+        status_text.text(f"Downloading vault details ({progress_i}/{total_steps})...")
 
         nb_followers = 0
         if details and "followers" in details:
@@ -213,10 +219,8 @@ if not cache_used:
         if details and "portfolio" in details:
 
             if details["portfolio"][3][0] == "allTime":
-                data_source_pnlHistory = details["portfolio"][3][1].get(
-                    "pnlHistory", [])
-                data_source_accountValueHistory = details["portfolio"][3][1].get(
-                    "accountValueHistory", [])
+                data_source_pnlHistory = details["portfolio"][3][1].get("pnlHistory", [])
+                data_source_accountValueHistory = details["portfolio"][3][1].get("accountValueHistory", [])
                 rebuilded_pnl = []
 
                 balance = start_balance_amount = 1000000
@@ -229,13 +233,11 @@ if not cache_used:
                         continue
 
                     # Capital at time T
-                    final_capital = float(
-                        data_source_accountValueHistory[idx][1])
+                    final_capital = float(data_source_accountValueHistory[idx][1])
                     # Cumulative PnL at time T
                     final_cumulated_pnl = float(data_source_pnlHistory[idx][1])
                     # Cumulative PnL at time T -1
-                    previous_cumulated_pnl = float(
-                        data_source_pnlHistory[idx - 1][1]) if idx > 0 else 0
+                    previous_cumulated_pnl = float(data_source_pnlHistory[idx - 1][1]) if idx > 0 else 0
                     # Non-cumulative PnL at time T
                     final_pnl = final_cumulated_pnl - previous_cumulated_pnl
                     # Capital before the gain/loss
@@ -294,43 +296,32 @@ filtered_df = final_df
 
 
 # Filter by 'Name' (last filter, free text)
-st.markdown("<h3 style='text-align: center;'>Filter by Name</h3>",
-            unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center;'>Filter by Name</h3>", unsafe_allow_html=True)
 name_filter = st.text_input(
     "Name Filter", "", placeholder="Enter names separated by ',' to filter (e.g., toto,tata)...", key="name_filter"
 )
 
 # Apply the filter
 if name_filter.strip():  # Check that the filter is not empty
-    name_list = [name.strip() for name in name_filter.split(",")
-                 ]  # List of names to search for
+    name_list = [name.strip() for name in name_filter.split(",")]  # List of names to search for
     pattern = "|".join(name_list)  # Create a regex pattern with logical "or"
-    filtered_df = filtered_df[filtered_df["Name"].str.contains(
-        pattern, case=False, na=False, regex=True)]
+    filtered_df = filtered_df[filtered_df["Name"].str.contains(pattern, case=False, na=False, regex=True)]
 
 # Organize sliders into rows of 3
 sliders = [
-    {"label": "Min Sharpe Ratio", "column": "Sharpe Ratio",
-        "max": False, "default": 0.4, "step": 0.1},
-    {"label": "Min Sortino Ratio", "column": "Sortino Ratio",
-        "max": False, "default": 0.5, "step": 0.1},
-    {"label": "Max Rekt accepted", "column": "Rekt",
-        "max": True, "default": 0, "step": 1},
-    {"label": "Max DD % accepted", "column": "Max DD %",
-        "max": True, "default": 15, "step": 1},
-    {"label": "Min Days Since accepted", "column": "Days Since",
-        "max": False, "default": 100, "step": 1},
-    {"label": "Min TVL accepted", "column": "Total Value Locked",
-        "max": False, "default": 0, "step": 1},
-    {"label": "Min APR accepted", "column": "APR %",
-        "max": False, "default": 0, "step": 1},
-    {"label": "Min Followers", "column": "Act. Followers",
-        "max": False, "default": 0, "step": 1},
+    {"label": "Min Sharpe Ratio", "column": "Sharpe Ratio", "max": False, "default": 0.4, "step": 0.1},
+    {"label": "Min Sortino Ratio", "column": "Sortino Ratio", "max": False, "default": 0.5, "step": 0.1},
+    {"label": "Max Rekt accepted", "column": "Rekt", "max": True, "default": 0, "step": 1},
+    {"label": "Max DD % accepted", "column": "Max DD %", "max": True, "default": 15, "step": 1},
+    {"label": "Min Days Since accepted", "column": "Days Since", "max": False, "default": 100, "step": 1},
+    {"label": "Min TVL accepted", "column": "Total Value Locked", "max": False, "default": 0, "step": 1},
+    {"label": "Min APR accepted", "column": "APR %", "max": False, "default": 0, "step": 1},
+    {"label": "Min Followers", "column": "Act. Followers", "max": False, "default": 0, "step": 1},
 ]
 
 for i in range(0, len(sliders), 3):
     cols = st.columns(3)
-    for slider, col in zip(sliders[i: i + 3], cols):
+    for slider, col in zip(sliders[i : i + 3], cols):
         column = slider["column"]
         value = slider_with_label(
             slider["label"],
@@ -351,8 +342,7 @@ for i in range(0, len(sliders), 3):
 st.title(f"Vaults filtered ({len(filtered_df)}) ")
 
 # Add a column with clickable links
-filtered_df["Link"] = filtered_df["Vault"].apply(
-    lambda vault: f"https://app.hyperliquid.xyz/vaults/{vault}")
+filtered_df["Link"] = filtered_df["Vault"].apply(lambda vault: f"https://app.hyperliquid.xyz/vaults/{vault}")
 
 # Reset index for continuous ranking
 filtered_df = filtered_df.reset_index(drop=True)

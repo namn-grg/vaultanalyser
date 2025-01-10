@@ -1,10 +1,10 @@
-import requests
-import os
 import json
+import os
 import re
-from datetime import datetime
-import streamlit as st
+from datetime import datetime, timedelta
 
+import requests
+import streamlit as st
 
 # URL for the vaults
 VAULTS_URL = "https://stats-data.hyperliquid.xyz/Mainnet/vaults"
@@ -32,8 +32,13 @@ def fetch_vaults_data():
     try:
         with open(CACHE_FILE, "r") as f:
             cache = json.load(f)
-            cache_used = True
-            vaults = cache["data"]
+            # Check if cache is older than 24 hours
+            last_update = datetime.fromisoformat(cache["last_update"])
+            if datetime.now() - last_update < timedelta(hours=24):
+                cache_used = True
+                vaults = cache["data"]
+            else:
+                print("Cache is older than 24 hours, refreshing...")
     except (FileNotFoundError, KeyError, ValueError):
         pass
 
@@ -49,14 +54,16 @@ def fetch_vaults_data():
                 "Vault": vault["summary"]["vaultAddress"],
                 "Leader": vault["summary"]["leader"],
                 "Total Value Locked": float(vault["summary"]["tvl"]),
-                "Days Since": (datetime.now() - datetime.fromtimestamp(vault["summary"]["createTimeMillis"] / 1000)).days,
+                "Days Since": (
+                    datetime.now() - datetime.fromtimestamp(vault["summary"]["createTimeMillis"] / 1000)
+                ).days,
             }
-            for vault in data if not vault["summary"]["isClosed"]
+            for vault in data
+            if not vault["summary"]["isClosed"]
         ]
 
         with open(CACHE_FILE, "w") as f:
-            json.dump(
-                {"last_update": datetime.now().isoformat(), "data": vaults}, f)
+            json.dump({"last_update": datetime.now().isoformat(), "data": vaults}, f)
 
     progress_bar.progress(100)  # Progress bar (from 0 to 1)
     if cache_used:
@@ -77,7 +84,7 @@ def fetch_vault_details(leader, vault_address):
     """Fetches vault details with a caching system."""
 
     cache_key = re.sub(r"[^a-zA-Z0-9_]", "", leader + "_" + vault_address)
-    local_DETAILS_CACHE_FILE = DETAILS_CACHE_FILE.replace('#KEY#', cache_key)
+    local_DETAILS_CACHE_FILE = DETAILS_CACHE_FILE.replace("#KEY#", cache_key)
 
     # Extract the directory path without the file
     directory_path = os.path.dirname(local_DETAILS_CACHE_FILE)
@@ -90,13 +97,12 @@ def fetch_vault_details(leader, vault_address):
             # print("Vault DETAIL: cache used", cache_key)
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        print('Vault DETAIL: No cache found')
+        print("Vault DETAIL: No cache found")
 
     print("Vault DETAIL: Download used", cache_key)
 
     # Otherwise, make the request
-    payload = {"type": "vaultDetails",
-               "user": leader, "vaultAddress": vault_address}
+    payload = {"type": "vaultDetails", "user": leader, "vaultAddress": vault_address}
     response = requests.post(INFO_URL, json=payload)
     if response.status_code == 200:
         details = response.json()
