@@ -13,7 +13,7 @@ A Streamlit application that analyzes HyperLiquid vaults, providing metrics like
 ## Deployment
 
 The application is automatically deployed to Streamlit Cloud and the cache is updated daily. You can access it at:
-https://hyperliquid-vault-analyzer.streamlit.app
+https://hl-vault-analyser.streamlit.app/
 
 ### Local Development
 
